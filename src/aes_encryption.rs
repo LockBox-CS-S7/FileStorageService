@@ -1,4 +1,4 @@
-use aes_gcm::{aead::{Aead, AeadCore, KeyInit, OsRng}, Aes256Gcm, Nonce, Key, AesGcm};
+use aes_gcm::{aead::{Aead, AeadCore, KeyInit, OsRng}, Aes256Gcm, Nonce, Key, AesGcm, aead};
 use aes_gcm::aead::consts::U12;
 use aes_gcm::aes::Aes256;
 
@@ -18,9 +18,13 @@ fn encrypt(data: &[u8], key: &[u8; 32]) -> Result<EncryptedData, aes_gcm::Error>
 }
 
 fn decrypt(data: EncryptedData, key: &[u8; 32]) -> Result<Vec<u8>, aes_gcm::Error> {
+    let key: &Key<Aes256Gcm> = key.into();
+    let cipher = Aes256Gcm::new(&key);
     
+    let nonce = Nonce::clone_from_slice(data.nonce.as_slice());
+    let plain_text = cipher.decrypt(&nonce, data.data().as_slice())?;
     
-    todo!()
+    Ok(plain_text)
 }
 
 
@@ -35,5 +39,13 @@ impl EncryptedData {
             data: data.to_vec(), 
             nonce: nonce.to_vec(),
         }
+    }
+
+    pub fn data(&self) -> &Vec<u8> {
+        &self.data
+    }
+
+    pub fn nonce(&self) -> &Vec<u8> {
+        &self.nonce
     }
 }
