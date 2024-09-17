@@ -1,6 +1,7 @@
 mod aes_encryption;
 
 use std::env;
+use std::fs;
 use std::fs::OpenOptions;
 use std::io::{ErrorKind, Read, Write};
 use aes_encryption::{encrypt, decrypt};
@@ -16,6 +17,10 @@ fn main() {
     let file_path = args.get(1).expect("file path was not provided.");
     let key = args.get(2).expect("key was not provided");
     let command = args.get(3).expect("command was not provided").as_ref();
+
+    if fs::read(file_path).is_err() {
+        panic!("The given file path does not lead to a file.");
+    }
 
     match command {
         "encrypt" => {
@@ -63,9 +68,8 @@ fn decrypt_file(path: &str, key: String) {
     let encrypted_data = EncryptedData::new(file_contents.as_slice(), nonce.as_slice());
     let key = parse_key(key).unwrap();
     let decrypted_data = decrypt(encrypted_data, &key).unwrap();
-    // TODO: write content to file again.
-    
-    todo!()
+
+    clear_write_file(path, decrypted_data).expect("Failed to write encrypted contents to file.");
 }
 
 
@@ -77,6 +81,7 @@ fn read_file(path: &str) -> std::io::Result<(usize, String)> {
 
     let mut content_buffer = String::new();
     let bytes_read = file.read_to_string(&mut content_buffer)?;
+    file.flush()?;
 
     Ok((bytes_read, content_buffer))
 }
@@ -91,6 +96,7 @@ fn clear_write_file(path: &str, new_content: Vec<u8>) -> std::io::Result<()> {
 
     file.set_len(0)?;
     file.write_all(new_content.as_ref())?;
+    file.flush()?;
 
     Ok(())
 }
