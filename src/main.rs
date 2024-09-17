@@ -22,6 +22,7 @@ fn main() {
         panic!("The given file path does not lead to a file.");
     }
 
+    // TODO: Generate random 32 byte key based on user provided one.
     match command {
         "encrypt" => {
             encrypt_file(file_path, key.clone());
@@ -58,6 +59,7 @@ fn encrypt_file(path: &str, key: String) {
 
 fn decrypt_file(path: &str, key: String) {
     let (bytes_read, file_contents) = read_file(path).unwrap();
+    println!("Bytes read: {}", bytes_read);
     let mut file_contents = file_contents.as_bytes().to_vec();
 
     let drain = file_contents.drain(0..NONCE_LENGTH);
