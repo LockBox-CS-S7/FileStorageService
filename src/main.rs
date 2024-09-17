@@ -24,11 +24,12 @@ fn main() {
 
     match command {
         "encrypt" => {
-
-
+            encrypt_file(file_path, key.clone());
+            println!("Successfully encrypted file!");
         },
         "decrypt" => {
-            println!("decryption not yet functional");
+            decrypt_file(file_path, key.clone());
+            println!("Successfully decrypted file!");
         },
         _ => {
             panic!("Invalid command.");
