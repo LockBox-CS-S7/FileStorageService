@@ -1,7 +1,7 @@
 use aes_gcm::{aead::{Aead, AeadCore, KeyInit, OsRng}, Aes256Gcm, Nonce, Key};
 
 
-fn encrypt(data: &[u8], key: &[u8; 32]) -> Result<EncryptedData, aes_gcm::Error> {
+pub fn encrypt(data: &[u8], key: &[u8; 32]) -> Result<EncryptedData, aes_gcm::Error> {
     // Transformed from a byte array:
     let key: &Key<Aes256Gcm> = key.into();
 
@@ -13,7 +13,7 @@ fn encrypt(data: &[u8], key: &[u8; 32]) -> Result<EncryptedData, aes_gcm::Error>
     Ok(EncryptedData::new(&ciphertext, &nonce))
 }
 
-fn decrypt(data: EncryptedData, key: &[u8; 32]) -> Result<Vec<u8>, aes_gcm::Error> {
+pub fn decrypt(data: EncryptedData, key: &[u8; 32]) -> Result<Vec<u8>, aes_gcm::Error> {
     let key: &Key<Aes256Gcm> = key.into();
     let cipher = Aes256Gcm::new(&key);
     
@@ -35,5 +35,13 @@ impl EncryptedData {
             data: data.to_vec(), 
             nonce: nonce.to_vec(),
         }
+    }
+
+    pub fn data(&self) -> &Vec<u8> {
+        &self.data
+    }
+
+    pub fn nonce(&self) -> &Vec<u8> {
+        &self.nonce
     }
 }
