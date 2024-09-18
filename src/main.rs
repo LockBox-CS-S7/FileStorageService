@@ -4,11 +4,9 @@ mod key_generation;
 use std::env;
 use std::fs;
 use std::fs::OpenOptions;
-use std::io::{ErrorKind, Read, Write};
+use std::io::{Read, Write};
 use aes_encryption::{encrypt, decrypt};
 use crate::aes_encryption::EncryptedData;
-
-const KEY_LENGTH: usize = 32;
 
 
 fn main() {
@@ -112,21 +110,4 @@ fn clear_write_file(path: &str, new_content: Vec<u8>) -> std::io::Result<()> {
     file.flush()?;
 
     Ok(())
-}
-
-fn parse_key(key: String) -> std::io::Result<[u8; 32]> {
-    let key = key.as_bytes();
-    if key.len() != KEY_LENGTH {
-        return Err(std::io::Error::new(
-            ErrorKind::InvalidData,
-            "Given key did not have the correct length."
-        ));
-    }
-
-    let mut parsed_key: [u8; KEY_LENGTH] = [0; KEY_LENGTH];
-    for i in 0..KEY_LENGTH {
-        parsed_key[i] = key[i];
-    }
-
-    Ok(parsed_key)
 }

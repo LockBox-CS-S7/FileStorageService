@@ -5,7 +5,7 @@ pub fn encrypt(data: &[u8], key: &[u8; 32]) -> Result<EncryptedData, aes_gcm::Er
     // Transformed from a byte array:
     let key: &Key<Aes256Gcm> = key.into();
 
-    let cipher = Aes256Gcm::new(&key);
+    let cipher = Aes256Gcm::new(key);
     
     let nonce = Aes256Gcm::generate_nonce(&mut OsRng); // 96-bits; unique per message
     let ciphertext = cipher.encrypt(&nonce, data)?;
@@ -15,7 +15,7 @@ pub fn encrypt(data: &[u8], key: &[u8; 32]) -> Result<EncryptedData, aes_gcm::Er
 
 pub fn decrypt(data: EncryptedData, key: &[u8; 32]) -> Result<Vec<u8>, aes_gcm::Error> {
     let key: &Key<Aes256Gcm> = key.into();
-    let cipher = Aes256Gcm::new(&key);
+    let cipher = Aes256Gcm::new(key);
     
     let nonce = Nonce::clone_from_slice(data.nonce.as_slice());
     let plain_text = cipher.decrypt(&nonce, data.data.as_slice())?;
