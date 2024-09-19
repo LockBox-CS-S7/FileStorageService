@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+rocket = "0.5.1"
 aes-gcm = "0.10.3"
 sha2 = "0.10.8"
 rand = "0.8.5"

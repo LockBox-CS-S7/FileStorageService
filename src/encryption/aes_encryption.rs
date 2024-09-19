@@ -1,5 +1,5 @@
 use aes_gcm::{aead::{Aead, AeadCore, KeyInit, OsRng}, Aes256Gcm, Nonce, Key};
-use crate::key_generation;
+use crate::encryption::key_generation;
 use crate::file_management::{read_file, clear_write_file};
 
 

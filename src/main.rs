@@ -1,34 +1,32 @@
-mod aes_encryption;
-mod key_generation;
-mod file_management;
+#[macro_use] extern crate rocket;
 
-use std::env;
-use std::fs;
-use aes_encryption::{encrypt_file, decrypt_file};
+mod encryption;
+pub mod file_management;
+mod file_id;
+
+use encryption::aes_encryption::{decrypt_file, encrypt_file};
+
+use rocket::data::{Data, ToByteUnit};
+use rocket::tokio::io::AsyncWriteExt;
+use file_id::FileId;
 
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
+const ID_LENGTH: usize = 12;
 
-    let file_path = args.get(1).expect("file path was not provided.");
-    let passphrase = args.get(2).expect("key was not provided");
-    let command = args.get(3).expect("command was not provided").as_ref();
 
-    if fs::read(file_path).is_err() {
-        panic!("The given file path does not lead to a file.");
-    }
+#[launch]
+fn rocket() -> _ {
+    rocket::build().mount("/", routes![test_route, upload_file])
+}
 
-    match command {
-        "encrypt" => {
-            encrypt_file(file_path, passphrase.clone());
-            println!("Successfully encrypted file!");
-        },
-        "decrypt" => {
-            decrypt_file(file_path, passphrase.clone());
-            println!("Successfully decrypted file!");
-        },
-        _ => {
-            panic!("Invalid command.");
-        }
-    }
+#[route(GET, uri = "/test")]
+fn test_route() -> &'static str {
+    "hello world"
+}
+
+#[post("/", data = "<paste>")]
+async fn upload_file(paste: Data<'_>) -> std::io::Result<String> {
+    let id = FileId::new(ID_LENGTH);
+    paste.open(128.kibibytes()).into_file(id.file_path()).await?;
+    Ok(String::from("File uploaded successfully!"))
 }
