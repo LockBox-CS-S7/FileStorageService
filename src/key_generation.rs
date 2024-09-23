@@ -3,11 +3,12 @@ use pbkdf2::pbkdf2_hmac;
 use rand::Rng;
 
 
-pub fn derive_key_from_passphrase(pass: &[u8], salt: &[u8]) -> [u8; 32] {
-    let iterations = 600_000;
-    let mut key_buffer = [0u8; 32];
+const ITERATIONS: u32 = 600_000;
 
-    pbkdf2_hmac::<Sha256>(pass, salt, iterations, &mut key_buffer);
+pub fn derive_key_from_passphrase(pass: &[u8], salt: &[u8]) -> [u8; 32] {
+    let mut key_buffer = [0u8; 32];
+    pbkdf2_hmac::<Sha256>(pass, salt, ITERATIONS, &mut key_buffer);
+    
     key_buffer
 }
 
