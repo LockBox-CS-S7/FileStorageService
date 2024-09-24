@@ -1,33 +1,27 @@
-mod file_management;
-mod encryption;
+mod extractors;
+mod middlewares;
+mod types;
+mod api;
 
-use std::env;
-use std::fs;
-use encryption::aes_encryption::{decrypt_file, encrypt_file};
+use actix_web::{App, HttpServer};
+use dotenv::dotenv;
 
-
-fn main() {
-    let args: Vec<String> = env::args().collect();
-
-    let file_path = args.get(1).expect("file path was not provided.");
-    let passphrase = args.get(2).expect("key was not provided");
-    let command = args.get(3).expect("command was not provided").as_ref();
-
-    if fs::read(file_path).is_err() {
-        panic!("The given file path does not lead to a file.");
-    }
-
-    match command {
-        "encrypt" => {
-            encrypt_file(file_path, passphrase.clone());
-            println!("Successfully encrypted file!");
-        },
-        "decrypt" => {
-            decrypt_file(file_path, passphrase.clone());
-            println!("Successfully decrypted file!");
-        },
-        _ => {
-            panic!("Invalid command.");
-        }
-    }
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
+    dotenv().ok();
+    env_logger::init();
+    let config = types::Config::default();
+    let auth0_config = extractors::Auth0Config::default();
+    HttpServer::new(move || {
+        App::new()
+            .app_data(auth0_config.clone())
+            .wrap(middlewares::cors(&config.client_origin_url))
+            .wrap(middlewares::err_handlers())
+            .wrap(middlewares::security_headers())
+            .wrap(middlewares::logger())
+            .service(api::routes())
+    })
+        .bind(("127.0.0.1", config.port))?
+        .run()
+        .await
 }
