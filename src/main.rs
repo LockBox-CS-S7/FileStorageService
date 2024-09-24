@@ -1,10 +1,9 @@
-mod aes_encryption;
-mod key_generation;
 mod file_management;
+mod encryption;
 
 use std::env;
 use std::fs;
-use aes_encryption::{encrypt_file, decrypt_file};
+use encryption::aes_encryption::{decrypt_file, encrypt_file};
 
 
 fn main() {
