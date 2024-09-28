@@ -27,5 +27,11 @@ fn test_route() -> &'static str {
 async fn upload_file(file: Data<'_>) -> std::io::Result<String> {
     let id = FileId::new(ID_LENGTH);
     file.open(2024.mebibytes()).into_file(id.file_path()).await?;
+    
+    // Encrypt the newly saved file
+    let path = id.file_path();
+    let path = path.to_str().unwrap();
+    encrypt_file(path, String::from("password"));
+    
     Ok(String::from("File uploaded successfully!"))
 }
