@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
 use rand::{self, Rng};
@@ -25,6 +26,22 @@ impl FileId<'_> {
         }
 
         FileId(Cow::Owned(id))
+    }
+    
+    /// Creates a new FileId from a string slice, returns _ErrorKind::NotFound_ 
+    /// when no file with given id is stored on disk.
+    pub fn from_id(id: &str) -> std::io::Result<Self> {
+        let file_id = Self(Cow::Owned(id.to_string()));
+        
+        // Return an error when the entered id does not have a corresponding file.
+        if !file_id.file_path().is_file() {
+            return Err(std::io::Error::new(
+                ErrorKind::NotFound, 
+                "No file with given id found."
+            ));
+        }
+        
+        Ok(file_id)
     }
 
     /// Returns the path to the paste in `upload/` corresponding to this ID.
