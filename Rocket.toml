@@ -2,5 +2,6 @@
 address = "127.0.0.1"
 port = 8080
 workers = 16
-log_level = "normal"
-cli_colors = true
+log_level = "critical"
+cli_colors = false
+ident = "FileStorageService"
