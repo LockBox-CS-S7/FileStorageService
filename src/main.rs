@@ -4,12 +4,15 @@ mod encryption;
 pub mod file_management;
 mod file_id;
 
-use encryption::aes_encryption::{decrypt_file, encrypt_file};
+use encryption::aes_encryption::{
+    encrypt_file, 
+    get_decrypted_file_content
+};
 use file_id::FileId;
 
 use rocket::fs::TempFile;
 use rocket::form::Form;
-use rocket::tokio::fs::File;
+use rocket::response::Responder;
 
 const ID_LENGTH: usize = 12;
 
@@ -25,6 +28,10 @@ struct GetFileForm {
     password: String,
 }
 
+#[derive(Responder)]
+#[response(status = 200, content_type = "application/octet-stream")]
+struct FileStreamResponse(String);
+
 
 #[launch]
 fn rocket() -> _ {
@@ -37,13 +44,16 @@ fn test_route() -> &'static str {
 }
 
 #[get("/", data = "<form>")]
-async fn get_file_by_id(form: Form<GetFileForm>) -> Option<File> {
+async fn get_file_by_id(form: Form<GetFileForm>) -> Option<FileStreamResponse> {
     let file_id = FileId::from_id(&form.file_id).ok()?;
     let file_path = file_id.file_path();
     let file_path = file_path.to_str()?;
     
-    decrypt_file(file_path, form.password.clone());
-    File::open(file_path).await.ok()
+    let decrypted_contents = 
+        get_decrypted_file_content(file_path, form.password.clone()).ok()?;
+    let decrypted_contents = String::from_utf8(decrypted_contents).ok()?;
+    
+    Some(FileStreamResponse(decrypted_contents))
 }
 
 #[post("/", data = "<form>")]
