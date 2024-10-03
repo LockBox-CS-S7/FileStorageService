@@ -47,6 +47,7 @@ pub fn encrypt_file(path: &str, passphrase: String) {
 }
 
 /// Decrypts a file, and writes the decrypted content to it. 
+#[allow(unused)]
 pub fn decrypt_file(path: &str, passphrase: String) -> std::io::Result<()> {
     let decrypted_data = get_decrypted_file_content(path, passphrase)?;
     clear_write_file(path, decrypted_data).expect("Failed to write encrypted contents to file.");

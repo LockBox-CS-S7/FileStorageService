@@ -1,7 +1,7 @@
 #[macro_use] extern crate rocket;
 
 mod encryption;
-pub mod file_management;
+mod file_management;
 mod file_id;
 
 use encryption::aes_encryption::{
