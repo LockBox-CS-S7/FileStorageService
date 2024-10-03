@@ -46,8 +46,16 @@ pub fn encrypt_file(path: &str, passphrase: String) {
     clear_write_file(path, new_file_content).expect("Failed to write encrypted data to file.");
 }
 
-pub fn decrypt_file(path: &str, passphrase: String) {
-    let (bytes_read, file_contents) = read_file(path).unwrap();
+/// Decrypts a file, and writes the decrypted content to it. 
+pub fn decrypt_file(path: &str, passphrase: String) -> std::io::Result<()> {
+    let decrypted_data = get_decrypted_file_content(path, passphrase)?;
+    clear_write_file(path, decrypted_data).expect("Failed to write encrypted contents to file.");
+    Ok(())
+}
+
+/// Decrypts a file's content and returns it, without actually decrypting the file on disk.
+pub fn get_decrypted_file_content(path: &str, passphrase: String) -> std::io::Result<Vec<u8>> {
+    let (bytes_read, file_contents) = read_file(path)?;
     println!("Bytes read: {}", bytes_read);
     let mut file_contents = file_contents;
 
@@ -67,9 +75,10 @@ pub fn decrypt_file(path: &str, passphrase: String) {
 
     let encrypted_data = EncryptedData::new(file_contents.as_slice(), nonce.as_slice());
     let key = key_generation::derive_key_from_passphrase(passphrase.as_bytes(), salt.as_slice());
-    let decrypted_data = decrypt(encrypted_data, &key).unwrap();
-
-    clear_write_file(path, decrypted_data).expect("Failed to write encrypted contents to file.");
+    let decrypted_data = 
+        decrypt(encrypted_data, &key).expect("Failed to decrypt file content.");
+    
+    Ok(decrypted_data)
 }
 
 

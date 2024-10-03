@@ -1,33 +1,71 @@
-mod file_management;
+#[macro_use] extern crate rocket;
+
 mod encryption;
+pub mod file_management;
+mod file_id;
 
-use std::env;
-use std::fs;
-use encryption::aes_encryption::{decrypt_file, encrypt_file};
+use encryption::aes_encryption::{
+    encrypt_file, 
+    get_decrypted_file_content
+};
+use file_id::FileId;
+
+use rocket::fs::TempFile;
+use rocket::form::Form;
+use rocket::response::Responder;
+
+const ID_LENGTH: usize = 12;
+
+#[derive(FromForm)]
+struct FileUpload<'r> {
+    file: TempFile<'r>,
+    password: String,
+}
+
+#[derive(FromForm)]
+struct GetFileForm {
+    file_id: String,
+    password: String,
+}
+
+#[derive(Responder)]
+#[response(status = 200, content_type = "application/octet-stream")]
+struct FileStreamResponse(String);
 
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
+#[launch]
+fn rocket() -> _ {
+    rocket::build().mount("/", routes![test_route, get_file_by_id, upload_file])
+}
 
-    let file_path = args.get(1).expect("file path was not provided.");
-    let passphrase = args.get(2).expect("key was not provided");
-    let command = args.get(3).expect("command was not provided").as_ref();
+#[route(GET, uri = "/test")]
+fn test_route() -> &'static str {
+    "hello world"
+}
 
-    if fs::read(file_path).is_err() {
-        panic!("The given file path does not lead to a file.");
-    }
+#[get("/", data = "<form>")]
+async fn get_file_by_id(form: Form<GetFileForm>) -> Option<FileStreamResponse> {
+    let file_id = FileId::from_id(&form.file_id).ok()?;
+    let file_path = file_id.file_path();
+    let file_path = file_path.to_str()?;
+    
+    let decrypted_contents = 
+        get_decrypted_file_content(file_path, form.password.clone()).ok()?;
+    let decrypted_contents = String::from_utf8(decrypted_contents).ok()?;
+    
+    Some(FileStreamResponse(decrypted_contents))
+}
 
-    match command {
-        "encrypt" => {
-            encrypt_file(file_path, passphrase.clone());
-            println!("Successfully encrypted file!");
-        },
-        "decrypt" => {
-            decrypt_file(file_path, passphrase.clone());
-            println!("Successfully decrypted file!");
-        },
-        _ => {
-            panic!("Invalid command.");
-        }
-    }
+#[post("/", data = "<form>")]
+async fn upload_file(mut form: Form<FileUpload<'_>>) -> std::io::Result<String> {
+    let id = FileId::new(ID_LENGTH);
+    let path = id.file_path();
+    form.file.persist_to(path.clone()).await?;
+    
+    // Encrypt the newly saved file
+    let path = path.to_str().unwrap();
+    let pass = form.password.clone();
+    encrypt_file(path, pass);
+    
+    Ok(String::from("File uploaded successfully!"))
 }
