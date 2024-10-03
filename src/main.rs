@@ -14,6 +14,8 @@ use rocket::fs::TempFile;
 use rocket::form::Form;
 use rocket::response::Responder;
 
+use sqlx::mysql::MySqlPoolOptions;
+
 const ID_LENGTH: usize = 12;
 
 #[derive(FromForm)]
@@ -33,9 +35,22 @@ struct GetFileForm {
 struct FileStreamResponse(String);
 
 
-#[launch]
-fn rocket() -> _ {
-    rocket::build().mount("/", routes![test_route, get_file_by_id, upload_file])
+#[rocket::main]
+async fn main() -> Result<(), rocket::Error> {
+    let pool = MySqlPoolOptions::new()
+        .max_connections(5)
+        .connect("mysql://root:password@file-db:33060/database").await.unwrap();
+
+    let row: (i64,) = sqlx::query_as("SELECT $1")
+        .bind(150_i64)
+        .fetch_one(&pool).await.unwrap();
+
+    let _rocket = rocket::build()
+        .mount("/api", routes![test_route, get_file_by_id, upload_file])
+        .launch()
+        .await?;
+
+    Ok(())
 }
 
 #[route(GET, uri = "/test")]

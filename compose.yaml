@@ -1,32 +1,16 @@
+version: "3.1"
+
 services:
-  FileStorageService:
+  file-storage-service:
     build: .
     ports:
       - "8080:8080"
-    depends_on:
-      FileDatabase:
-        condition: service_healthy
+#    depends_on:
+#      file-db:
+#        condition: service_healthy
 
-  FileDatabase:
-    image: postgres
+  file-db:
+    image: mysql
     restart: always
-    user: postgres
-    secrets:
-      - db-password
-    volumes:
-      - db-data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=example
-      - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
-    expose:
-      - 5432
-    healthcheck:
-      test: [ "CMD", "pg_isready" ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-#  volumes:
-#    db-data:
-#  secrets:
-#    db-password:
-#      file: db/password.txt
+      MYSQL_ROOT_PASSWORD: password
