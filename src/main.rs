@@ -3,6 +3,8 @@
 mod encryption;
 mod file_management;
 mod file_id;
+mod repository;
+mod models;
 
 use encryption::aes_encryption::{
     encrypt_file, 
@@ -39,11 +41,11 @@ struct FileStreamResponse(String);
 async fn main() -> Result<(), rocket::Error> {
     let pool = MySqlPoolOptions::new()
         .max_connections(5)
-        .connect("mysql://root:password@file-db:33060/database").await.unwrap();
+        .connect("mysql://root:password@file-db/database").await.expect("Failed to connect to database");
 
     let row: (i64,) = sqlx::query_as("SELECT $1")
         .bind(150_i64)
-        .fetch_one(&pool).await.unwrap();
+        .fetch_one(&pool).await.expect("Failed to execute select query");
 
     let _rocket = rocket::build()
         .mount("/api", routes![test_route, get_file_by_id, upload_file])
