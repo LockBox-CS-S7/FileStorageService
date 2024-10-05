@@ -1,4 +1,5 @@
 use std::io::Result as IoResult;
+use sqlx::{Connection, MySqlConnection};
 use super::repository_base::RepositoryBase;
 use crate::models::FileModel;
 
@@ -7,19 +8,21 @@ pub struct FileRepository {
 }
 
 impl RepositoryBase<FileModel> for FileRepository {
-    fn get(&self, id: i32) -> IoResult<FileModel> {
+    async fn get(&self, id: i32) -> IoResult<FileModel> {
+        let conn = MySqlConnection::connect("mysql://root:password@file-db/database").await.unwrap();
+
         todo!()
     }
 
-    fn create(&self, model: FileModel) -> IoResult<i32> {
+    async fn create(&self, model: FileModel) -> IoResult<i32> {
         todo!()
     }
 
-    fn update(&self, model: FileModel) -> IoResult<()> {
+    async fn update(&self, model: FileModel) -> IoResult<()> {
         todo!()
     }
 
-    fn delete(&self, id: i32) -> IoResult<()> {
+    async fn delete(&self, id: i32) -> IoResult<()> {
         todo!()
     }
 }

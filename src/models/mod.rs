@@ -1,3 +1,4 @@
+#[derive(Debug, Clone, PartialEq)]
 pub struct FileModel {
     pub file_name: String,
     pub file_type: String,
