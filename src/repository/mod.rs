@@ -1,2 +1,2 @@
 pub mod repository_base;
-mod file_repository;
+pub mod file_repository;

@@ -11,14 +11,17 @@ use encryption::aes_encryption::{
     get_decrypted_file_content
 };
 use file_id::FileId;
+use repository::file_repository::FileRepository;
 
 use rocket::fs::TempFile;
 use rocket::form::Form;
 use rocket::response::Responder;
-
-use sqlx::mysql::MySqlPoolOptions;
+use crate::models::FileModel;
+use crate::repository::repository_base::RepositoryBase;
 
 const ID_LENGTH: usize = 12;
+const DB_CONNECTION_URI: &str = "mysql://root:password@file-db/file-db";
+
 
 #[derive(FromForm)]
 struct FileUpload<'r> {
@@ -39,14 +42,15 @@ struct FileStreamResponse(String);
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
-    let pool = MySqlPoolOptions::new()
-        .max_connections(5)
-        .connect("mysql://root:password@file-db/database").await.expect("Failed to connect to database");
-
-    let row: (i64,) = sqlx::query_as("SELECT $1")
-        .bind(150_i64)
-        .fetch_one(&pool).await.expect("Failed to execute select query");
-
+    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let model = FileModel::new(
+        String::from("test-file"), 
+        String::from("text"), 
+        "hello world".as_bytes().to_vec()
+    );
+    
+    repo.create(model).await.unwrap();
+    
     let _rocket = rocket::build()
         .mount("/api", routes![test_route, get_file_by_id, upload_file])
         .launch()
