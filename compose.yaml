@@ -1,13 +1,11 @@
-version: "3.1"
-
 services:
   file-storage-service:
     build: .
     ports:
       - "8080:8080"
-#    depends_on:
-#      file-db:
-#        condition: service_healthy
+    depends_on:
+      file-db:
+        condition: service_started
 
   file-db:
     image: mysql

@@ -17,16 +17,16 @@ impl RepositoryBase<FileModel> for FileRepository {
 
         let query = format!("SELECT * FROM Files WHERE Id == {}", id);
 
-        let res = conn.execute(query.as_str()).await.map_err(|_| {
-            IoError::new(ErrorKind::NotFound, "Could not find item with requested id")
+        let res = conn.execute(query.as_str()).await.map_err(|err| {
+            IoError::new(ErrorKind::NotFound, err)
         })?;
-
+        
         todo!()
     }
 
     async fn create(&self, model: FileModel) -> IoResult<String> {
-        let mut conn = MySqlConnection::connect(&self.db_uri).await.map_err(|_| {
-            IoError::new(ErrorKind::ConnectionRefused, "Database connection refused")
+        let mut conn = MySqlConnection::connect(&self.db_uri).await.map_err(|err| {
+            IoError::new(ErrorKind::ConnectionRefused, err)
         })?;
 
         let contents_utf = String::from_utf8_lossy(model.contents.as_slice());

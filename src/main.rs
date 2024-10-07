@@ -16,11 +16,12 @@ use repository::file_repository::FileRepository;
 use rocket::fs::TempFile;
 use rocket::form::Form;
 use rocket::response::Responder;
+use tokio::io::AsyncReadExt;
 use crate::models::FileModel;
 use crate::repository::repository_base::RepositoryBase;
 
 const ID_LENGTH: usize = 12;
-const DB_CONNECTION_URI: &str = "mysql://root:password@file-db/file-db";
+const DB_CONNECTION_URI: &str = "mysql://root:password@file-db:3306/file-db";
 
 
 #[derive(FromForm)]
@@ -42,15 +43,6 @@ struct FileStreamResponse(String);
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
-    let repo = FileRepository::new(DB_CONNECTION_URI);
-    let model = FileModel::new(
-        String::from("test-file"), 
-        String::from("text"), 
-        "hello world".as_bytes().to_vec()
-    );
-    
-    repo.create(model).await.unwrap();
-    
     let _rocket = rocket::build()
         .mount("/api", routes![test_route, get_file_by_id, upload_file])
         .launch()
@@ -79,14 +71,18 @@ async fn get_file_by_id(form: Form<GetFileForm>) -> Option<FileStreamResponse> {
 
 #[post("/", data = "<form>")]
 async fn upload_file(mut form: Form<FileUpload<'_>>) -> std::io::Result<String> {
-    let id = FileId::new(ID_LENGTH);
-    let path = id.file_path();
-    form.file.persist_to(path.clone()).await?;
+    let mut file_buffer = Vec::new();
+    let mut buf_read = form.file.open().await?;
+    buf_read.read_to_end(&mut file_buffer).await?;
     
-    // Encrypt the newly saved file
-    let path = path.to_str().unwrap();
-    let pass = form.password.clone();
-    encrypt_file(path, pass);
+    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let model = FileModel::new(
+        String::from("test-file"),
+        String::from("text"),
+        file_buffer
+    );
+
+    repo.create(model).await?;
     
     Ok(String::from("File uploaded successfully!"))
 }
