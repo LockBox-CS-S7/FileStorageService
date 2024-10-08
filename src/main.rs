@@ -16,7 +16,8 @@ use repository::file_repository::FileRepository;
 use rocket::fs::TempFile;
 use rocket::form::Form;
 use rocket::response::Responder;
-use tokio::io::AsyncReadExt;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use rocket::tokio::fs::File;
 use crate::models::FileModel;
 use crate::repository::repository_base::RepositoryBase;
 
@@ -27,13 +28,12 @@ const DB_CONNECTION_URI: &str = "mysql://root:password@file-db:3306/file-db";
 #[derive(FromForm)]
 struct FileUpload<'r> {
     file: TempFile<'r>,
-    password: String,
+    user_id: String,
 }
 
 #[derive(FromForm)]
 struct GetFileForm {
     file_id: String,
-    password: String,
 }
 
 #[derive(Responder)]
@@ -57,20 +57,19 @@ fn test_route() -> &'static str {
 }
 
 #[get("/", data = "<form>")]
-async fn get_file_by_id(form: Form<GetFileForm>) -> Option<FileStreamResponse> {
-    let file_id = FileId::from_id(&form.file_id).ok()?;
-    let file_path = file_id.file_path();
-    let file_path = file_path.to_str()?;
+async fn get_file_by_id(form: Form<GetFileForm>) -> Option<File> {
+    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let model = repo.get(form.file_id.clone()).await.ok()?;
     
-    let decrypted_contents = 
-        get_decrypted_file_content(file_path, form.password.clone()).ok()?;
-    let decrypted_contents = String::from_utf8(decrypted_contents).ok()?;
+    let temp_id = FileId::new(ID_LENGTH);
+    let mut file = File::create(temp_id.file_path()).await.ok()?;
+    file.write_all(&model.contents).await.ok()?;
     
-    Some(FileStreamResponse(decrypted_contents))
+    Some(file)
 }
 
 #[post("/", data = "<form>")]
-async fn upload_file(mut form: Form<FileUpload<'_>>) -> std::io::Result<String> {
+async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     let mut file_buffer = Vec::new();
     let mut buf_read = form.file.open().await?;
     buf_read.read_to_end(&mut file_buffer).await?;
@@ -79,10 +78,9 @@ async fn upload_file(mut form: Form<FileUpload<'_>>) -> std::io::Result<String> 
     let model = FileModel::new(
         String::from("test-file"),
         String::from("text"),
-        file_buffer
+        file_buffer,
     );
-
-    repo.create(model).await?;
     
+    repo.create(model).await?;
     Ok(String::from("File uploaded successfully!"))
 }
