@@ -21,7 +21,7 @@ use rocket::tokio::fs::File;
 use crate::models::FileModel;
 use crate::repository::repository_base::RepositoryBase;
 
-const ID_LENGTH: usize = 12;
+const ID_LENGTH: usize = 36;
 const DB_CONNECTION_URI: &str = "mysql://root:password@file-db:3306/file-db";
 
 
@@ -74,13 +74,16 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     let mut buf_read = form.file.open().await?;
     buf_read.read_to_end(&mut file_buffer).await?;
     
-    let repo = FileRepository::new(DB_CONNECTION_URI);
-    let model = FileModel::new(
-        String::from("test-file"),
-        String::from("text"),
-        file_buffer,
-    );
+    let file_name = form.file.name().unwrap();
+    let file_extension = form.file.content_type().unwrap().0.extension().unwrap();
     
-    repo.create(model).await?;
-    Ok(String::from("File uploaded successfully!"))
+    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let model = FileModel {
+        file_name: String::from(file_name),
+        file_type: file_extension.to_string(),
+        contents: file_buffer,
+    };
+    
+    let file_id = repo.create(model).await?;
+    Ok(format!("File uploaded successfully (id = {file_id})"))
 }

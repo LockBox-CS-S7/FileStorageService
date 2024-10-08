@@ -45,9 +45,14 @@ impl FileId<'_> {
     }
 
     /// Returns the path to the paste in `upload/` corresponding to this ID.
+    #[deprecated]
     pub fn file_path(&self) -> PathBuf {
         let root = concat!(env!("CARGO_MANIFEST_DIR"), "/", "uploads");
         Path::new(root).join(self.0.as_ref())
+    }
+    
+    pub fn as_str(&self) -> &str {
+        &self.0
     }
 }
 

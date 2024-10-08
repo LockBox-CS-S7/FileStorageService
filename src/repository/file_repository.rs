@@ -3,6 +3,7 @@ use rocket::futures::TryStreamExt;
 use sqlx::{Connection, Executor, MySqlConnection, Row};
 use super::repository_base::RepositoryBase;
 use crate::models::FileModel;
+use crate::FileId;
 
 
 
@@ -50,9 +51,11 @@ impl RepositoryBase<FileModel> for FileRepository {
         let mut conn = MySqlConnection::connect(&self.db_uri).await.map_err(|err| {
             IoError::new(ErrorKind::ConnectionRefused, err)
         })?;
-
-        let query = "INSERT INTO Files (FileName, FileType, Contents) VALUES (?, ?, ?)";
+        
+        let id = FileId::new(36);
+        let query = "INSERT INTO Files (FileId, FileName, FileType, Contents) VALUES (?, ?, ?, ?)";
         let query = sqlx::query(query)
+            .bind(id.as_str())
             .bind(model.file_name)
             .bind(model.file_type)
             .bind(model.contents.as_slice());
@@ -62,7 +65,7 @@ impl RepositoryBase<FileModel> for FileRepository {
         })?;
         
         let id = format!("{}", res.last_insert_id());
-        Ok(id)
+        Ok(String::from(id.as_str()))
     }
 
     async fn update(&self, model: FileModel) -> IoResult<()> {
