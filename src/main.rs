@@ -31,11 +31,6 @@ struct FileUpload<'r> {
     user_id: String,
 }
 
-#[derive(FromForm)]
-struct GetFileForm {
-    file_id: String,
-}
-
 #[derive(Responder)]
 #[response(status = 200, content_type = "application/octet-stream")]
 struct FileStreamResponse(String);
@@ -56,16 +51,16 @@ fn test_route() -> &'static str {
     "hello world"
 }
 
-#[get("/", data = "<form>")]
-async fn get_file_by_id(form: Form<GetFileForm>) -> Option<File> {
+#[get("/", data = "<file_id>")]
+async fn get_file_by_id(file_id: String) -> std::io::Result<File> {
     let repo = FileRepository::new(DB_CONNECTION_URI);
-    let model = repo.get(form.file_id.clone()).await.ok()?;
+    let model = repo.get(file_id).await?;
     
     let temp_id = FileId::new(ID_LENGTH);
-    let mut file = File::create(temp_id.file_path()).await.ok()?;
-    file.write_all(&model.contents).await.ok()?;
+    let mut file = File::create(temp_id.file_path()).await?;
+    file.write_all(&model.contents).await?;
     
-    Some(file)
+    Ok(file)
 }
 
 #[post("/", data = "<form>")]
@@ -79,6 +74,7 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     
     let repo = FileRepository::new(DB_CONNECTION_URI);
     let model = FileModel {
+        id: None,
         file_name: String::from(file_name),
         file_type: file_extension.to_string(),
         contents: file_buffer,

@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::io::{ErrorKind, Result as IoResult, Error as IoError};
 use rocket::futures::TryStreamExt;
 use sqlx::{Connection, Executor, MySqlConnection, Row};
@@ -15,45 +16,37 @@ pub struct FileRepository {
 impl RepositoryBase<FileModel> for FileRepository {
     async fn get(&self, id: String) -> IoResult<FileModel> {
         let mut conn =
-            MySqlConnection::connect(&self.db_uri).await.unwrap();
-
-        // let query = format!("SELECT * FROM Files WHERE Id == {}", id);
-        //
-        // let res = conn.execute(query.as_str()).await.map_err(|err| {
-        //     IoError::new(ErrorKind::NotFound, err)
-        // })?;
-
-        let mut rows = sqlx::query("SELECT * FROM Files WHERE Id == ?")
+            MySqlConnection::connect(&self.db_uri).await.map_err(|err| {
+                IoError::new(ErrorKind::ConnectionRefused, err)
+            })?;
+        
+        let query = "SELECT * FROM Files WHERE id = ?";
+        let found_file = sqlx::query_as::<_, FileModel>(query)
             .bind(id)
-            .fetch(&mut conn);
+            .fetch_optional(&mut conn)
+            .await
+            .map_err(|err| {
+                IoError::new(ErrorKind::ConnectionRefused, err)
+            })?;
         
-        let mut files: Vec<FileModel> = Vec::new();
-        while let Some(row) = rows.try_next().await.unwrap() {
-            let file = FileModel::new(
-                row.try_get("file_name").unwrap(),
-                row.try_get("file_type").unwrap(),
-                row.try_get("contents").unwrap(),
-            );
-            files.push(file);
-        }
-        
-        if files.len() == 1 {
-            Ok(files.first().unwrap().clone())
+        if let Some(file) = found_file {
+            Ok(file)
         } else {
             Err(std::io::Error::new(
-                ErrorKind::Other, 
-                "Found more than one file with given id"
+                ErrorKind::NotFound, 
+                "Could not find file with the given id"
             ))
         }
     }
-
+    
+    /// Inserts a new entry in the Files table, ignores _FileModel.id_
     async fn create(&self, model: FileModel) -> IoResult<String> {
         let mut conn = MySqlConnection::connect(&self.db_uri).await.map_err(|err| {
             IoError::new(ErrorKind::ConnectionRefused, err)
         })?;
         
         let id = FileId::new(36);
-        let query = "INSERT INTO Files (FileId, FileName, FileType, Contents) VALUES (?, ?, ?, ?)";
+        let query = "INSERT INTO Files (id, file_name, file_type, contents) VALUES (?, ?, ?, ?)";
         let query = sqlx::query(query)
             .bind(id.as_str())
             .bind(model.file_name)
