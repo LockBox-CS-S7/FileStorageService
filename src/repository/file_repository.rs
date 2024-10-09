@@ -1,13 +1,10 @@
-use std::fs::File;
-use std::io::{ErrorKind, Result as IoResult, Error as IoError};
-use rocket::futures::TryStreamExt;
-use sqlx::{Connection, Executor, MySqlConnection, Row};
 use super::repository_base::RepositoryBase;
 use crate::models::FileModel;
 use crate::FileId;
-
-
-
+use rocket::futures::TryStreamExt;
+use sqlx::{Connection, Executor, MySqlConnection, Row};
+use std::fs::File;
+use std::io::{Error as IoError, ErrorKind, Result as IoResult};
 
 pub struct FileRepository {
     db_uri: String,
@@ -15,36 +12,33 @@ pub struct FileRepository {
 
 impl RepositoryBase<FileModel> for FileRepository {
     async fn get(&self, id: String) -> IoResult<FileModel> {
-        let mut conn =
-            MySqlConnection::connect(&self.db_uri).await.map_err(|err| {
-                IoError::new(ErrorKind::ConnectionRefused, err)
-            })?;
-        
+        let mut conn = MySqlConnection::connect(&self.db_uri)
+            .await
+            .map_err(|err| IoError::new(ErrorKind::ConnectionRefused, err))?;
+
         let query = "SELECT * FROM Files WHERE id = ?";
         let found_file = sqlx::query_as::<_, FileModel>(query)
             .bind(id)
             .fetch_optional(&mut conn)
             .await
-            .map_err(|err| {
-                IoError::new(ErrorKind::ConnectionRefused, err)
-            })?;
-        
+            .map_err(|err| IoError::new(ErrorKind::ConnectionRefused, err))?;
+
         if let Some(file) = found_file {
             Ok(file)
         } else {
             Err(std::io::Error::new(
-                ErrorKind::NotFound, 
-                "Could not find file with the given id"
+                ErrorKind::NotFound,
+                "Could not find file with the given id",
             ))
         }
     }
-    
+
     /// Inserts a new entry in the Files table, ignores _FileModel.id_
     async fn create(&self, model: FileModel) -> IoResult<String> {
-        let mut conn = MySqlConnection::connect(&self.db_uri).await.map_err(|err| {
-            IoError::new(ErrorKind::ConnectionRefused, err)
-        })?;
-        
+        let mut conn = MySqlConnection::connect(&self.db_uri)
+            .await
+            .map_err(|err| IoError::new(ErrorKind::ConnectionRefused, err))?;
+
         let id = FileId::new(36);
         let query = "INSERT INTO Files (id, file_name, file_type, contents) VALUES (?, ?, ?, ?)";
         let query = sqlx::query(query)
@@ -53,10 +47,11 @@ impl RepositoryBase<FileModel> for FileRepository {
             .bind(model.file_type)
             .bind(model.contents.as_slice());
 
-        let res = conn.execute(query).await.map_err(|err| {
-            IoError::new(ErrorKind::InvalidData, err)
-        })?;
-        
+        let res = conn
+            .execute(query)
+            .await
+            .map_err(|err| IoError::new(ErrorKind::InvalidData, err))?;
+
         let id = format!("{}", res.last_insert_id());
         Ok(String::from(id.as_str()))
     }
@@ -73,7 +68,7 @@ impl RepositoryBase<FileModel> for FileRepository {
 impl FileRepository {
     pub fn new(db_uri: &str) -> Self {
         Self {
-            db_uri: db_uri.to_string()
+            db_uri: db_uri.to_string(),
         }
     }
 }
