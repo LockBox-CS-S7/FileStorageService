@@ -48,20 +48,21 @@ fn test_route() -> &'static str {
 }
 
 #[get("/<file_id>")]
-async fn get_file_by_id(file_id: &str) -> std::io::Result<File> {
+async fn get_file_by_id(file_id: &str) -> Option<File> {
     let repo = FileRepository::new(DB_CONNECTION_URI);
-    let model = repo.get(file_id).await?;
+    let model = repo.get(&file_id).await.ok()?;
 
     let temp_id = FileId::new(ID_LENGTH);
     let file_name = format!(
-        "{}.{}", 
-        temp_id.file_path().as_path().to_str().unwrap(),
+        "{}.{}",
+        temp_id.file_path().as_path().to_str()?,
         model.file_type,
     );
-    let mut file = File::create(file_name).await?;
-    file.write_all(&model.contents).await?;
-
-    Ok(file)
+    let mut file = File::create(&file_name).await.ok()?;
+    file.write_all(&model.contents).await.ok()?;
+    file.flush().await.ok()?;
+    
+    File::open(&file_name).await.ok()
 }
 
 #[post("/", data = "<form>")]
