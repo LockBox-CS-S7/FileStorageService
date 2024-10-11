@@ -7,7 +7,6 @@ mod file_management;
 mod models;
 mod repository;
 
-use encryption::aes_encryption::{encrypt_file, get_decrypted_file_content};
 use file_id::FileId;
 use repository::file_repository::FileRepository;
 
@@ -15,7 +14,6 @@ use crate::models::FileModel;
 use crate::repository::repository_base::RepositoryBase;
 use rocket::form::Form;
 use rocket::fs::TempFile;
-use rocket::response::Responder;
 use rocket::tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -28,17 +26,16 @@ struct FileUpload<'r> {
     user_id: String,
 }
 
-#[derive(Responder)]
-#[response(status = 200, content_type = "application/octet-stream")]
-struct FileStreamResponse(String);
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
+    create_temp_files_dir().await.ok();
+    
     let _rocket = rocket::build()
         .mount("/api", routes![test_route, get_file_by_id, upload_file])
         .launch()
         .await?;
-
+    
     Ok(())
 }
 
@@ -51,7 +48,7 @@ fn test_route() -> &'static str {
 async fn get_file_by_id(file_id: &str) -> Option<File> {
     let repo = FileRepository::new(DB_CONNECTION_URI);
     let model = repo.get(&file_id).await.ok()?;
-
+    
     let temp_id = FileId::new(ID_LENGTH);
     let file_name = format!(
         "{}.{}",
@@ -70,10 +67,10 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     let mut file_buffer = Vec::new();
     let mut buf_read = form.file.open().await?;
     buf_read.read_to_end(&mut file_buffer).await?;
-
+    
     let file_name = form.file.name().unwrap();
     let file_extension = form.file.content_type().unwrap().0.extension().unwrap();
-
+    
     let repo = FileRepository::new(DB_CONNECTION_URI);
     let model = FileModel {
         id: None,
@@ -81,7 +78,19 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
         file_type: file_extension.to_string(),
         contents: file_buffer,
     };
-
+    
     let file_id = repo.create(model).await?;
     Ok(format!("File uploaded successfully (id = {file_id})"))
+}
+
+/// Creates the _'temp-files'_ directory for temporary file storage if it doesn't exist yet.
+async fn create_temp_files_dir() -> std::io::Result<()> {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/", "temp-files");
+    let read_dir_res = rocket::tokio::fs::read_dir(path).await;
+    
+    if read_dir_res.is_err() {
+        rocket::tokio::fs::create_dir(path).await?;
+    }
+    
+    Ok(())
 }
