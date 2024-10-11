@@ -44,9 +44,9 @@ impl FileId<'_> {
         Ok(file_id)
     }
 
-    /// Returns the path to the paste in `upload/` corresponding to this ID.
+    /// Returns the path to the paste in `temp-files/` corresponding to this ID.
     pub fn file_path(&self) -> PathBuf {
-        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/", "uploads");
+        let root = concat!(env!("CARGO_MANIFEST_DIR"), "/", "temp-files");
         Path::new(root).join(self.0.as_ref())
     }
     
