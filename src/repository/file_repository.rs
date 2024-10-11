@@ -11,7 +11,7 @@ pub struct FileRepository {
 }
 
 impl RepositoryBase<FileModel> for FileRepository {
-    async fn get(&self, id: String) -> IoResult<FileModel> {
+    async fn get(&self, id: &str) -> IoResult<FileModel> {
         let mut conn = MySqlConnection::connect(&self.db_uri)
             .await
             .map_err(|err| IoError::new(ErrorKind::ConnectionRefused, err))?;
@@ -60,7 +60,7 @@ impl RepositoryBase<FileModel> for FileRepository {
         todo!()
     }
 
-    async fn delete(&self, id: String) -> IoResult<()> {
+    async fn delete(&self, id: &str) -> IoResult<()> {
         todo!()
     }
 }

@@ -47,13 +47,18 @@ fn test_route() -> &'static str {
     "hello world"
 }
 
-#[get("/", data = "<file_id>")]
-async fn get_file_by_id(file_id: String) -> std::io::Result<File> {
+#[get("/<file_id>")]
+async fn get_file_by_id(file_id: &str) -> std::io::Result<File> {
     let repo = FileRepository::new(DB_CONNECTION_URI);
     let model = repo.get(file_id).await?;
 
     let temp_id = FileId::new(ID_LENGTH);
-    let mut file = File::create(temp_id.file_path()).await?;
+    let file_name = format!(
+        "{}.{}", 
+        temp_id.file_path().as_path().to_str().unwrap(),
+        model.file_type,
+    );
+    let mut file = File::create(file_name).await?;
     file.write_all(&model.contents).await?;
 
     Ok(file)
