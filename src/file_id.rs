@@ -18,13 +18,13 @@ impl FileId<'_> {
     /// of IDs generated thus far.
     pub fn new(size: usize) -> FileId<'static> {
         const BASE62: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
+        
         let mut id = String::with_capacity(size);
         let mut rng = rand::thread_rng();
         for _ in 0..size {
             id.push(BASE62[rng.gen::<usize>() % 62] as char);
         }
-
+        
         FileId(Cow::Owned(id))
     }
     
@@ -43,7 +43,7 @@ impl FileId<'_> {
         
         Ok(file_id)
     }
-
+    
     /// Returns the path to the paste in `temp-files/` corresponding to this ID.
     pub fn file_path(&self) -> PathBuf {
         let root = concat!(env!("CARGO_MANIFEST_DIR"), "/", "temp-files");
@@ -59,7 +59,7 @@ impl FileId<'_> {
 /// Otherwise, returns the invalid ID as the `Err` value.
 impl<'a> FromParam<'a> for FileId<'a> {
     type Error = &'a str;
-
+    
     fn from_param(param: &'a str) -> Result<Self, Self::Error> {
         param.chars().all(|c| c.is_ascii_alphanumeric())
             .then(|| FileId(param.into()))

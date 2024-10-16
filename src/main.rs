@@ -6,12 +6,15 @@ mod file_id;
 mod file_management;
 mod models;
 mod repository;
+mod fairings;
 
 use file_id::FileId;
 use repository::file_repository::FileRepository;
 
-use crate::models::FileModel;
-use crate::repository::repository_base::RepositoryBase;
+use models::FileModel;
+use repository::repository_base::RepositoryBase;
+use fairings::CORS;
+
 use rocket::form::Form;
 use rocket::fs::TempFile;
 use rocket::tokio::fs::File;
@@ -33,6 +36,7 @@ async fn main() -> Result<(), rocket::Error> {
     
     let _rocket = rocket::build()
         .mount("/api", routes![test_route, get_file_by_id, upload_file])
+        .attach(CORS)
         .launch()
         .await?;
     
