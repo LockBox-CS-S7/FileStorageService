@@ -1,41 +1,46 @@
-#[macro_use] extern crate rocket;
+#[macro_use]
+extern crate rocket;
 
 mod encryption;
-mod file_management;
 mod file_id;
+mod file_management;
+mod models;
+mod repository;
+mod fairings;
 
-use encryption::aes_encryption::{
-    encrypt_file, 
-    get_decrypted_file_content
-};
 use file_id::FileId;
+use repository::file_repository::FileRepository;
 
-use rocket::fs::TempFile;
+use models::FileModel;
+use repository::repository_base::RepositoryBase;
+use fairings::CORS;
+
 use rocket::form::Form;
-use rocket::response::Responder;
+use rocket::fs::TempFile;
+use rocket::tokio::fs::File;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-const ID_LENGTH: usize = 12;
+const ID_LENGTH: usize = 36;
+const DB_CONNECTION_URI: &str = "mysql://root:password@file-db:3306/file-db";
 
 #[derive(FromForm)]
 struct FileUpload<'r> {
     file: TempFile<'r>,
-    password: String,
+    user_id: String,
 }
 
-#[derive(FromForm)]
-struct GetFileForm {
-    file_id: String,
-    password: String,
-}
 
-#[derive(Responder)]
-#[response(status = 200, content_type = "application/octet-stream")]
-struct FileStreamResponse(String);
-
-
-#[launch]
-fn rocket() -> _ {
-    rocket::build().mount("/", routes![test_route, get_file_by_id, upload_file])
+#[rocket::main]
+async fn main() -> Result<(), rocket::Error> {
+    create_temp_files_dir().await.ok();
+    
+    let _rocket = rocket::build()
+        .mount("/api", routes![test_route, get_file_by_id, upload_file])
+        .attach(CORS)
+        .launch()
+        .await?;
+    
+    Ok(())
 }
 
 #[route(GET, uri = "/test")]
@@ -43,29 +48,53 @@ fn test_route() -> &'static str {
     "hello world"
 }
 
-#[get("/", data = "<form>")]
-async fn get_file_by_id(form: Form<GetFileForm>) -> Option<FileStreamResponse> {
-    let file_id = FileId::from_id(&form.file_id).ok()?;
-    let file_path = file_id.file_path();
-    let file_path = file_path.to_str()?;
+#[get("/<file_id>")]
+async fn get_file_by_id(file_id: &str) -> Option<File> {
+    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let model = repo.get(&file_id).await.ok()?;
     
-    let decrypted_contents = 
-        get_decrypted_file_content(file_path, form.password.clone()).ok()?;
-    let decrypted_contents = String::from_utf8(decrypted_contents).ok()?;
+    let temp_id = FileId::new(ID_LENGTH);
+    let file_name = format!(
+        "{}.{}",
+        temp_id.file_path().as_path().to_str()?,
+        model.file_type,
+    );
+    let mut file = File::create(&file_name).await.ok()?;
+    file.write_all(&model.contents).await.ok()?;
+    file.flush().await.ok()?;
     
-    Some(FileStreamResponse(decrypted_contents))
+    File::open(&file_name).await.ok()
 }
 
 #[post("/", data = "<form>")]
-async fn upload_file(mut form: Form<FileUpload<'_>>) -> std::io::Result<String> {
-    let id = FileId::new(ID_LENGTH);
-    let path = id.file_path();
-    form.file.persist_to(path.clone()).await?;
+async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
+    let mut file_buffer = Vec::new();
+    let mut buf_read = form.file.open().await?;
+    buf_read.read_to_end(&mut file_buffer).await?;
     
-    // Encrypt the newly saved file
-    let path = path.to_str().unwrap();
-    let pass = form.password.clone();
-    encrypt_file(path, pass);
+    let file_name = form.file.name().unwrap();
+    let file_extension = form.file.content_type().unwrap().0.extension().unwrap();
     
-    Ok(String::from("File uploaded successfully!"))
+    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let model = FileModel {
+        id: None,
+        file_name: String::from(file_name),
+        file_type: file_extension.to_string(),
+        contents: file_buffer,
+    };
+    
+    let file_id = repo.create(model).await?;
+    Ok(format!("File uploaded successfully (id = {file_id})"))
+}
+
+/// Creates the _'temp-files'_ directory for temporary file storage if it doesn't exist yet.
+async fn create_temp_files_dir() -> std::io::Result<()> {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/", "temp-files");
+    let read_dir_res = rocket::tokio::fs::read_dir(path).await;
+    
+    if read_dir_res.is_err() {
+        rocket::tokio::fs::create_dir(path).await?;
+    }
+    
+    Ok(())
 }

@@ -1,0 +1,22 @@
+services:
+  file-storage-service:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      file-db:
+        condition: service_started
+
+  file-db:
+    image: mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: file-db
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+volumes:
+  db_data:
