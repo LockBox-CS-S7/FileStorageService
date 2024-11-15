@@ -16,10 +16,10 @@ impl Fairing for RequestLogging {
 
     async fn on_request(&self, request: &mut Request<'_>, _data: &mut Data<'_>) {
         let request_type = match request.method() {
-            Method::Get => Some("GET "),
-            Method::Post => Some("POST "),
-            Method::Delete => Some("DELETE "),
-            Method::Put => Some("PUT "),
+            Method::Get => Some("GET"),
+            Method::Post => Some("POST"),
+            Method::Delete => Some("DELETE"),
+            Method::Put => Some("PUT"),
             _ => None,
         };
         let req_route = request.route();
