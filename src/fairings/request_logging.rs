@@ -3,6 +3,7 @@ use rocket::fairing::{Fairing, Info, Kind};
 use rocket::{Data, Request, Route};
 use rocket::http::Method;
 use log::info;
+use chrono::Utc;
 
 pub struct RequestLogging;
 #[rocket::async_trait]
@@ -60,7 +61,7 @@ impl ApiRequest {
     }
     
     fn get_log_message(&self) -> String {
-        let mut message = String::from("received a request (request_type, route, ip_address): (");
+        let mut message = String::from("Received a request (");
         if let Some(t) = &self.request_type {
             message.push_str(t.as_str());
             message.push_str(", ");
@@ -71,9 +72,10 @@ impl ApiRequest {
         }
         if let Some(ip) = &self.ip_address {
             message.push_str(ip.as_str());
-            message.push_str(")");
         }
         
+        message.push_str(") datetime: ");
+        message.push_str(&Utc::now().to_string());
         message
     }
 }
