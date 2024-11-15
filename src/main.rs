@@ -7,18 +7,22 @@ mod file_management;
 mod models;
 mod repository;
 mod fairings;
+mod logging;
 
 use file_id::FileId;
 use repository::file_repository::FileRepository;
 
 use models::FileModel;
 use repository::repository_base::RepositoryBase;
-use fairings::CORS;
+use fairings::{CORS, RequestLogging};
 
 use rocket::form::Form;
 use rocket::fs::TempFile;
 use rocket::tokio::fs::File;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use crate::logging::init_file_logger;
+use log::{info, warn, error};
+use rocket::Request;
 
 const ID_LENGTH: usize = 36;
 const DB_CONNECTION_URI: &str = "mysql://root:password@file-db:3306/file-db";
@@ -32,14 +36,17 @@ struct FileUpload<'r> {
 
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
+    init_file_logger();
     create_temp_files_dir().await.ok();
     
     let _rocket = rocket::build()
         .mount("/api", routes![test_route, get_file_by_id, upload_file])
         .attach(CORS)
+        .attach(RequestLogging)
         .launch()
         .await?;
     
+    info!("Rocket application started successfully.");
     Ok(())
 }
 
