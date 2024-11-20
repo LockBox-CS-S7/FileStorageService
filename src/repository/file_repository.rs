@@ -1,9 +1,7 @@
 use super::repository_base::RepositoryBase;
 use crate::models::FileModel;
 use crate::FileId;
-use rocket::futures::TryStreamExt;
-use sqlx::{Connection, Executor, MySqlConnection, Row};
-use std::fs::File;
+use sqlx::{Connection, Executor, MySqlConnection};
 use std::io::{Error as IoError, ErrorKind, Result as IoResult};
 
 pub struct FileRepository {
