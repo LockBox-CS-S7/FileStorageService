@@ -80,11 +80,12 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     buf_read.read_to_end(&mut file_buffer).await?;
     
     let file_name = form.file.name().unwrap();
-    let file_extension = form.file.content_type().unwrap().0.extension().unwrap();
+    let file_extension = form.file.content_type().unwrap().0.extension().unwrap_or("".into());
     
     let repo = FileRepository::new(DB_CONNECTION_URI);
     let model = FileModel {
         id: None,
+        user_id: form.user_id.clone(),
         file_name: String::from(file_name),
         file_type: file_extension.to_string(),
         contents: file_buffer,

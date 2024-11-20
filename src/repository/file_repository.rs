@@ -40,9 +40,10 @@ impl RepositoryBase<FileModel> for FileRepository {
             .map_err(|err| IoError::new(ErrorKind::ConnectionRefused, err))?;
 
         let id = FileId::new(36);
-        let query = "INSERT INTO Files (id, file_name, file_type, contents) VALUES (?, ?, ?, ?)";
+        let query = "INSERT INTO Files (id, user_id, file_name, file_type, contents) VALUES (?, ?, ?, ?, ?)";
         let query = sqlx::query(query)
             .bind(id.as_str())
+            .bind(model.user_id)
             .bind(model.file_name)
             .bind(model.file_type)
             .bind(model.contents.as_slice());
