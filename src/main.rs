@@ -41,7 +41,7 @@ async fn main() -> Result<(), rocket::Error> {
     create_temp_files_dir().await.ok();
     
     let _rocket = rocket::build()
-        .mount("/api", routes![test_route, get_file_by_id, upload_file])
+        .mount("/api", routes![test_route, get_file_by_id, get_user_files, upload_file])
         .attach(CORS)
         .attach(RequestLogging)
         .launch()
