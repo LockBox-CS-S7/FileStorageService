@@ -70,4 +70,26 @@ impl FileRepository {
             db_uri: db_uri.to_string(),
         }
     }
+
+    pub async fn get_file_by_user_id(&self, user_id: &str) -> IoResult<Vec<FileModel>> {
+        let mut conn = MySqlConnection::connect(&self.db_uri)
+            .await
+            .map_err(|err| IoError::new(ErrorKind::ConnectionRefused, err))?;
+
+        let query = "SELECT * FROM Files WHERE user_id = ?";
+        let found_files = sqlx::query_as::<_, FileModel>(query)
+            .bind(user_id)
+            .fetch_all(&mut conn)
+            .await
+            .map_err(|err| IoError::new(ErrorKind::ConnectionRefused, err))?;
+
+        if found_files.len() > 0 {
+            Ok(found_files)
+        } else {
+            Err(std::io::Error::new(
+                ErrorKind::NotFound,
+                "Could not find any file with the given user id",
+            ))
+        }
+    }
 }

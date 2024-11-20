@@ -9,6 +9,7 @@ mod repository;
 mod fairings;
 mod logging;
 
+use chrono::Utc;
 use file_id::FileId;
 use repository::file_repository::FileRepository;
 
@@ -19,10 +20,10 @@ use fairings::{CORS, RequestLogging};
 use rocket::form::Form;
 use rocket::fs::TempFile;
 use rocket::tokio::fs::File;
+use rocket::serde::json::Json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::logging::init_file_logger;
-use log::{info, warn, error};
-use rocket::Request;
+use log::info;
 
 const ID_LENGTH: usize = 36;
 const DB_CONNECTION_URI: &str = "mysql://root:password@file-db:3306/file-db";
@@ -46,7 +47,7 @@ async fn main() -> Result<(), rocket::Error> {
         .launch()
         .await?;
     
-    info!("Rocket application started successfully.");
+    info!("Rocket application started successfully. {}", Utc::now().to_string());
     Ok(())
 }
 
@@ -72,6 +73,16 @@ async fn get_file_by_id(file_id: &str) -> Option<File> {
     
     File::open(&file_name).await.ok()
 }
+
+
+#[get("/user-files/<user_id>")]
+async fn get_user_files(user_id: &str) -> Json<Vec<FileModel>> {
+    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let files = repo.get_file_by_user_id(user_id).await.unwrap();
+    
+    Json(files)
+}
+
 
 #[post("/", data = "<form>")]
 async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
