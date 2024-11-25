@@ -1,0 +1,13 @@
+[default]
+address = "127.0.0.1"
+port = 8080
+workers = 16
+log_level = "critical"
+cli_colors = false
+ident = "FileStorageService"
+
+[default.limits]
+form = "64 kB"
+json = "1 MiB"
+msgpack = "2 MiB"
+"file/jpg" = "50 MiB"

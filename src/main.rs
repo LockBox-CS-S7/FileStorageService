@@ -1,122 +1,119 @@
-mod aes_encryption;
+#[macro_use]
+extern crate rocket;
 
-use std::env;
-use std::fs;
-use std::fs::OpenOptions;
-use std::io::{ErrorKind, Read, Write};
-use aes_encryption::{encrypt, decrypt};
-use crate::aes_encryption::EncryptedData;
+mod encryption;
+mod file_id;
+mod file_management;
+mod models;
+mod repository;
+mod fairings;
+mod logging;
 
-const KEY_LENGTH: usize = 32;
-const NONCE_LENGTH: usize = 12;
+use chrono::Utc;
+use file_id::FileId;
+use repository::file_repository::FileRepository;
 
+use models::FileModel;
+use repository::repository_base::RepositoryBase;
+use fairings::{CORS, RequestLogging};
 
-fn main() {
-    let args: Vec<String> = env::args().collect();
+use rocket::form::Form;
+use rocket::fs::TempFile;
+use rocket::tokio::fs::File;
+use rocket::serde::json::Json;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use crate::logging::init_file_logger;
+use log::info;
 
-    let file_path = args.get(1).expect("file path was not provided.");
-    let key = args.get(2).expect("key was not provided");
-    let command = args.get(3).expect("command was not provided").as_ref();
+const ID_LENGTH: usize = 36;
+const DB_CONNECTION_URI: &str = "mysql://root:password@file-db:3306/file-db";
 
-    if fs::read(file_path).is_err() {
-        panic!("The given file path does not lead to a file.");
-    }
-
-    // TODO: Generate random 32 byte key based on user provided one.
-    match command {
-        "encrypt" => {
-            encrypt_file(file_path, key.clone());
-            println!("Successfully encrypted file!");
-        },
-        "decrypt" => {
-            decrypt_file(file_path, key.clone());
-            println!("Successfully decrypted file!");
-        },
-        _ => {
-            panic!("Invalid command.");
-        }
-    }
+#[derive(FromForm)]
+struct FileUpload<'r> {
+    file: TempFile<'r>,
+    user_id: String,
 }
 
 
-fn encrypt_file(path: &str, key: String) {
-    let (bytes_read, file_content) = read_file(path)
-        .expect("Failed to read file.");
-
-    println!("Bytes to encrypt: {}", bytes_read);
-
-    let file_content = file_content.as_bytes();
-    let key = parse_key(key.clone()).expect("Failed to parse the given key.");
-
-    let encrypted_data = encrypt(file_content, &key).expect("An error occurred when encrypting data.");
-
-    // Add the Nonce at the beginning of the encrypted data for later retrieval.
-    let mut new_file_content = encrypted_data.nonce().clone();
-    new_file_content.append(encrypted_data.data().clone().as_mut());
-
-    clear_write_file(path, new_file_content).expect("Failed to write encrypted data to file.");
-}
-
-fn decrypt_file(path: &str, key: String) {
-    let (bytes_read, file_contents) = read_file(path).unwrap();
-    println!("Bytes read: {}", bytes_read);
-    let mut file_contents = file_contents.as_bytes().to_vec();
-
-    let drain = file_contents.drain(0..NONCE_LENGTH);
-    let mut nonce: Vec<u8> = Vec::new();
-    for byte in drain {
-        nonce.push(byte);
-    }
+#[rocket::main]
+async fn main() -> Result<(), rocket::Error> {
+    init_file_logger();
+    create_temp_files_dir().await.ok();
     
-    let encrypted_data = EncryptedData::new(file_contents.as_slice(), nonce.as_slice());
-    let key = parse_key(key).unwrap();
-    let decrypted_data = decrypt(encrypted_data, &key).unwrap();
-
-    clear_write_file(path, decrypted_data).expect("Failed to write encrypted contents to file.");
-}
-
-
-/// Reads a file and returns (bytes_read, file_content)
-fn read_file(path: &str) -> std::io::Result<(usize, String)> {
-    let mut file = OpenOptions::new()
-        .read(true)
-        .open(path)?;
-
-    let mut content_buffer = String::new();
-    let bytes_read = file.read_to_string(&mut content_buffer)?;
-    file.flush()?;
-
-    Ok((bytes_read, content_buffer))
-}
-
-/// Sets the file length to 0, then writes the given content to it.
-fn clear_write_file(path: &str, new_content: Vec<u8>) -> std::io::Result<()> {
-    let mut file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .truncate(true)
-        .open(path)?;
-
-    file.set_len(0)?;
-    file.write_all(new_content.as_ref())?;
-    file.flush()?;
-
+    let _rocket = rocket::build()
+        .mount("/api", routes![test_route, get_file_by_id, get_user_files, upload_file])
+        .attach(CORS)
+        .attach(RequestLogging)
+        .launch()
+        .await?;
+    
+    info!("Rocket application started successfully. {}", Utc::now().to_string());
     Ok(())
 }
 
-fn parse_key(key: String) -> std::io::Result<[u8; 32]> {
-    let key = key.as_bytes();
-    if key.len() != KEY_LENGTH {
-        return Err(std::io::Error::new(
-            ErrorKind::InvalidData,
-            "Given key did not have the correct length."
-        ));
-    }
+#[route(GET, uri = "/test")]
+fn test_route() -> &'static str {
+    "hello world"
+}
 
-    let mut parsed_key: [u8; KEY_LENGTH] = [0; KEY_LENGTH];
-    for i in 0..KEY_LENGTH {
-        parsed_key[i] = key[i];
-    }
+#[get("/<file_id>")]
+async fn get_file_by_id(file_id: &str) -> Option<File> {
+    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let model = repo.get(&file_id).await.ok()?;
+    
+    let temp_id = FileId::new(ID_LENGTH);
+    let file_name = format!(
+        "{}.{}",
+        temp_id.file_path().as_path().to_str()?,
+        model.file_type,
+    );
+    let mut file = File::create(&file_name).await.ok()?;
+    file.write_all(&model.contents).await.ok()?;
+    file.flush().await.ok()?;
+    
+    File::open(&file_name).await.ok()
+}
 
-    Ok(parsed_key)
+
+#[get("/user-files/<user_id>")]
+async fn get_user_files(user_id: &str) -> Json<Vec<FileModel>> {
+    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let files = repo.get_file_by_user_id(user_id).await.unwrap();
+    
+    Json(files)
+}
+
+
+#[post("/", data = "<form>")]
+async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
+    let mut file_buffer = Vec::new();
+    let mut buf_read = form.file.open().await?;
+    buf_read.read_to_end(&mut file_buffer).await?;
+    
+    let file_name = form.file.name().unwrap();
+    let file_extension = form.file.content_type().unwrap().0.extension().unwrap_or("".into());
+    
+    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let model = FileModel {
+        id: None,
+        user_id: form.user_id.clone(),
+        file_name: String::from(file_name),
+        file_type: file_extension.to_string(),
+        contents: file_buffer,
+    };
+    
+    let file_id = repo.create(model).await?;
+    Ok(format!("File uploaded successfully (id = {file_id})"))
+}
+
+/// Creates the _'temp-files'_ directory for temporary file storage if it doesn't exist yet.
+async fn create_temp_files_dir() -> std::io::Result<()> {
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/", "temp-files");
+    let read_dir_res = rocket::tokio::fs::read_dir(path).await;
+    
+    if read_dir_res.is_err() {
+        rocket::tokio::fs::create_dir(path).await?;
+    }
+    
+    Ok(())
 }
