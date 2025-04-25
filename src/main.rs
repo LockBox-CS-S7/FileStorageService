@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate rocket;
 
+extern crate dotenv;
+
 mod encryption;
 mod file_id;
 mod file_management;
@@ -24,9 +26,9 @@ use rocket::serde::json::Json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::logging::init_file_logger;
 use log::info;
+use dotenv::dotenv;
 
 const ID_LENGTH: usize = 36;
-const DB_CONNECTION_URI: &str = "mysql://root:password@file-db:3306/file-db";
 
 #[derive(FromForm)]
 struct FileUpload<'r> {
@@ -34,9 +36,9 @@ struct FileUpload<'r> {
     user_id: String,
 }
 
-
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
+    dotenv().ok();
     init_file_logger();
     create_temp_files_dir().await.ok();
     
@@ -58,7 +60,7 @@ fn test_route() -> &'static str {
 
 #[get("/<file_id>")]
 async fn get_file_by_id(file_id: &str) -> Option<File> {
-    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let repo = FileRepository::from_env();
     let model = repo.get(&file_id).await.ok()?;
     
     let temp_id = FileId::new(ID_LENGTH);
@@ -77,8 +79,8 @@ async fn get_file_by_id(file_id: &str) -> Option<File> {
 
 #[get("/user-files/<user_id>")]
 async fn get_user_files(user_id: &str) -> Json<Vec<FileModel>> {
-    let repo = FileRepository::new(DB_CONNECTION_URI);
-    let files = repo.get_file_by_user_id(user_id).await.unwrap();
+    let repo = FileRepository::from_env();
+    let files = repo.get_files_by_user_id(user_id).await.unwrap();
     
     Json(files)
 }
@@ -93,7 +95,7 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     let file_name = form.file.name().unwrap();
     let file_extension = form.file.content_type().unwrap().0.extension().unwrap_or("".into());
     
-    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let repo = FileRepository::from_env();
     let model = FileModel {
         id: None,
         user_id: form.user_id.clone(),

@@ -1,3 +1,6 @@
 /target
 /uploads
 /temp-files
+
+.env
+logs.txt

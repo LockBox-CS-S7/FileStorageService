@@ -2,6 +2,8 @@
 name = "lockbox-fs-service"
 version = "0.1.0"
 edition = "2021"
+authors = ["Rik de Goede <rik.dgd@gmail.com>"]
+description = "This is the file storage service for the LockBox microservice project."
 
 [dependencies]
 rocket = { version = "0.5.1", features = ["json"]}
@@ -17,3 +19,4 @@ log = "0.4.22"
 env_logger = "0.11.5"
 chrono = "0.4.38"
 serde = { version = "1.0.210", features = ["derive"] }
+dotenv = "0.15.0"
