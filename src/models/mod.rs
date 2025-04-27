@@ -1,3 +1,3 @@
 mod file_model;
 
-pub use file_model::FileModel;
+pub use file_model::{FileModel, FileViewModel};

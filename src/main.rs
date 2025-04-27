@@ -15,7 +15,7 @@ use chrono::Utc;
 use file_id::FileId;
 use repository::file_repository::FileRepository;
 
-use models::FileModel;
+use models::{FileModel, FileViewModel};
 use repository::repository_base::RepositoryBase;
 use fairings::{CORS, RequestLogging};
 
@@ -78,11 +78,16 @@ async fn get_file_by_id(file_id: &str) -> Option<File> {
 
 
 #[get("/user-files/<user_id>")]
-async fn get_user_files(user_id: &str) -> Json<Vec<FileModel>> {
+async fn get_user_files(user_id: &str) -> Json<Vec<FileViewModel>> {
     let repo = FileRepository::from_env();
     let files = repo.get_files_by_user_id(user_id).await.unwrap();
     
-    Json(files)
+    let mut file_view_models = Vec::new();
+    for file in files {
+        file_view_models.push(FileViewModel::from_model(file).remove_contents());
+    }
+    
+    Json(file_view_models)
 }
 
 
