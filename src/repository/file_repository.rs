@@ -10,7 +10,7 @@ pub struct FileRepository {
 }
 
 impl RepositoryBase<FileModel> for FileRepository {
-    async fn get(&self, id: &str) -> IoResult<FileModel> {
+    async fn read(&self, id: &str) -> IoResult<FileModel> {
         let mut conn = MySqlConnection::connect(&self.db_url)
             .await
             .map_err(|err| IoError::new(ErrorKind::ConnectionRefused, err))?;

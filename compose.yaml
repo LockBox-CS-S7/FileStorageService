@@ -5,10 +5,10 @@ services:
       - "8080:8080"
     depends_on:
       file-db:
-        condition: service_started
+        condition: service_healthy
 
   file-db:
-    image: mysql
+    image: mysql:9.3.0
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: password
@@ -18,5 +18,11 @@ services:
     volumes:
       - db_data:/var/lib/mysql
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   db_data:

@@ -61,7 +61,7 @@ fn test_route() -> &'static str {
 #[get("/<file_id>")]
 async fn get_file_by_id(file_id: &str) -> Option<File> {
     let repo = FileRepository::from_env();
-    let model = repo.get(&file_id).await.ok()?;
+    let model = repo.read(&file_id).await.ok()?;
     
     let temp_id = FileId::new(ID_LENGTH);
     let file_name = format!(
