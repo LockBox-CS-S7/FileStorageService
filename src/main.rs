@@ -29,6 +29,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::logging::init_file_logger;
 use log::info;
 use dotenv::dotenv;
+use crate::messaging::rabbitmq::FileMessageData;
 
 const ID_LENGTH: usize = 36;
 
@@ -114,11 +115,12 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     let file_id = repo.create(model).await?;
 
     let messenger = RabbitMqMessenger::from_env();
-    messenger.send_message(&format!(
-        "User with id: \"{}\" has uploaded a file \"{}\"",
-        form.user_id,
-        file_name
-    )).await.ok();
+    let message = FileMessageData::new(
+        "FILE_UPLOADED",
+        "test_user_id",
+        None,
+    );
+    messenger.send_message(&message).await.ok();
 
     Ok(format!("File uploaded successfully (id = {file_id})"))
 }
