@@ -52,7 +52,7 @@ impl RepositoryBase<FileModel> for FileRepository {
             .await
             .map_err(|err| IoError::new(ErrorKind::InvalidData, err))?;
 
-        let id = format!("{}", res.last_insert_id());
+        let id = format!("{}", res.last_insert_id()); // TODO: This id is always 0, fix it
         Ok(String::from(id.as_str()))
     }
 

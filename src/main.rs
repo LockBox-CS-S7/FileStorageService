@@ -10,6 +10,7 @@ mod models;
 mod repository;
 mod fairings;
 mod logging;
+mod messaging;
 
 use chrono::Utc;
 use file_id::FileId;
@@ -18,6 +19,7 @@ use repository::file_repository::FileRepository;
 use models::{FileModel, FileViewModel};
 use repository::repository_base::RepositoryBase;
 use fairings::{CORS, RequestLogging};
+use messaging::rabbitmq::RabbitMqMessenger;
 
 use rocket::form::Form;
 use rocket::fs::TempFile;
@@ -27,6 +29,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::logging::init_file_logger;
 use log::info;
 use dotenv::dotenv;
+use crate::messaging::rabbitmq::FileMessageData;
 
 const ID_LENGTH: usize = 36;
 
@@ -110,6 +113,15 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     };
     
     let file_id = repo.create(model).await?;
+
+    let messenger = RabbitMqMessenger::from_env();
+    let message = FileMessageData::new(
+        "FILE_UPLOADED",
+        "test_user_id",
+        None,
+    );
+    messenger.send_message(&message).await.ok();
+
     Ok(format!("File uploaded successfully (id = {file_id})"))
 }
 
