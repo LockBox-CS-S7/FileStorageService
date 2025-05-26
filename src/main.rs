@@ -1,6 +1,8 @@
 #[macro_use]
 extern crate rocket;
 
+extern crate dotenv;
+
 mod encryption;
 mod file_id;
 mod file_management;
@@ -8,14 +10,16 @@ mod models;
 mod repository;
 mod fairings;
 mod logging;
+mod messaging;
 
 use chrono::Utc;
 use file_id::FileId;
 use repository::file_repository::FileRepository;
 
-use models::FileModel;
+use models::{FileModel, FileViewModel};
 use repository::repository_base::RepositoryBase;
 use fairings::{CORS, RequestLogging};
+use messaging::rabbitmq::RabbitMqMessenger;
 
 use rocket::form::Form;
 use rocket::fs::TempFile;
@@ -24,9 +28,10 @@ use rocket::serde::json::Json;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use crate::logging::init_file_logger;
 use log::info;
+use dotenv::dotenv;
+use crate::messaging::rabbitmq::FileMessageData;
 
 const ID_LENGTH: usize = 36;
-const DB_CONNECTION_URI: &str = "mysql://root:password@file-db:3306/file-db";
 
 #[derive(FromForm)]
 struct FileUpload<'r> {
@@ -34,9 +39,9 @@ struct FileUpload<'r> {
     user_id: String,
 }
 
-
 #[rocket::main]
 async fn main() -> Result<(), rocket::Error> {
+    dotenv().ok();
     init_file_logger();
     create_temp_files_dir().await.ok();
     
@@ -58,8 +63,8 @@ fn test_route() -> &'static str {
 
 #[get("/<file_id>")]
 async fn get_file_by_id(file_id: &str) -> Option<File> {
-    let repo = FileRepository::new(DB_CONNECTION_URI);
-    let model = repo.get(&file_id).await.ok()?;
+    let repo = FileRepository::from_env();
+    let model = repo.read(&file_id).await.ok()?;
     
     let temp_id = FileId::new(ID_LENGTH);
     let file_name = format!(
@@ -76,11 +81,16 @@ async fn get_file_by_id(file_id: &str) -> Option<File> {
 
 
 #[get("/user-files/<user_id>")]
-async fn get_user_files(user_id: &str) -> Json<Vec<FileModel>> {
-    let repo = FileRepository::new(DB_CONNECTION_URI);
-    let files = repo.get_file_by_user_id(user_id).await.unwrap();
+async fn get_user_files(user_id: &str) -> Json<Vec<FileViewModel>> {
+    let repo = FileRepository::from_env();
+    let files = repo.get_files_by_user_id(user_id).await.unwrap();
     
-    Json(files)
+    let mut file_view_models = Vec::new();
+    for file in files {
+        file_view_models.push(FileViewModel::from_model(file).remove_contents());
+    }
+    
+    Json(file_view_models)
 }
 
 
@@ -93,7 +103,7 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     let file_name = form.file.name().unwrap();
     let file_extension = form.file.content_type().unwrap().0.extension().unwrap_or("".into());
     
-    let repo = FileRepository::new(DB_CONNECTION_URI);
+    let repo = FileRepository::from_env();
     let model = FileModel {
         id: None,
         user_id: form.user_id.clone(),
@@ -103,6 +113,15 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     };
     
     let file_id = repo.create(model).await?;
+
+    let messenger = RabbitMqMessenger::from_env();
+    let message = FileMessageData::new(
+        "FILE_UPLOADED",
+        "test_user_id",
+        None,
+    );
+    messenger.send_message(&message).await.ok();
+
     Ok(format!("File uploaded successfully (id = {file_id})"))
 }
 

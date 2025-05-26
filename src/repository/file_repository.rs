@@ -3,14 +3,15 @@ use crate::models::FileModel;
 use crate::FileId;
 use sqlx::{Connection, Executor, MySqlConnection};
 use std::io::{Error as IoError, ErrorKind, Result as IoResult};
+use std::env;
 
 pub struct FileRepository {
-    db_uri: String,
+    db_url: String,
 }
 
 impl RepositoryBase<FileModel> for FileRepository {
-    async fn get(&self, id: &str) -> IoResult<FileModel> {
-        let mut conn = MySqlConnection::connect(&self.db_uri)
+    async fn read(&self, id: &str) -> IoResult<FileModel> {
+        let mut conn = MySqlConnection::connect(&self.db_url)
             .await
             .map_err(|err| IoError::new(ErrorKind::ConnectionRefused, err))?;
 
@@ -33,7 +34,7 @@ impl RepositoryBase<FileModel> for FileRepository {
 
     /// Inserts a new entry in the Files table, ignores _FileModel.id_
     async fn create(&self, model: FileModel) -> IoResult<String> {
-        let mut conn = MySqlConnection::connect(&self.db_uri)
+        let mut conn = MySqlConnection::connect(&self.db_url)
             .await
             .map_err(|err| IoError::new(ErrorKind::ConnectionRefused, err))?;
 
@@ -51,7 +52,7 @@ impl RepositoryBase<FileModel> for FileRepository {
             .await
             .map_err(|err| IoError::new(ErrorKind::InvalidData, err))?;
 
-        let id = format!("{}", res.last_insert_id());
+        let id = format!("{}", res.last_insert_id()); // TODO: This id is always 0, fix it
         Ok(String::from(id.as_str()))
     }
 
@@ -65,14 +66,15 @@ impl RepositoryBase<FileModel> for FileRepository {
 }
 
 impl FileRepository {
-    pub fn new(db_uri: &str) -> Self {
-        Self {
-            db_uri: db_uri.to_string(),
-        }
+    pub fn from_env() -> Self {
+        let db_url = env::var("DATABASE_URL")
+            .expect("Failed to get the connection string from environment variables");
+        
+        Self { db_url }
     }
 
-    pub async fn get_file_by_user_id(&self, user_id: &str) -> IoResult<Vec<FileModel>> {
-        let mut conn = MySqlConnection::connect(&self.db_uri)
+    pub async fn get_files_by_user_id(&self, user_id: &str) -> IoResult<Vec<FileModel>> {
+        let mut conn = MySqlConnection::connect(&self.db_url)
             .await
             .map_err(|err| IoError::new(ErrorKind::ConnectionRefused, err))?;
 
@@ -83,7 +85,7 @@ impl FileRepository {
             .await
             .map_err(|err| IoError::new(ErrorKind::ConnectionRefused, err))?;
 
-        if found_files.len() > 0 {
+        if !found_files.is_empty() {
             Ok(found_files)
         } else {
             Err(std::io::Error::new(
