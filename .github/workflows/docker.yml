@@ -1,0 +1,24 @@
+name: docker.yml
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Login to Docker
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - uses: actions/checkout@v4
+      - name: Build the Docker image
+        run: docker build . --file Dockerfile --tag rikdegoede/lockbox-file-service:latest
+
+      - name: Push to Dockerhub
+        run: docker push rikdegoede/lockbox-file-service:latest
