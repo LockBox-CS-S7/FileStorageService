@@ -16,7 +16,7 @@ COPY --from=Build /app/target/release/lockbox-fs-service .
 EXPOSE 8080
 
 ENV ROCKET_ADDRESS=0.0.0.0
-ENV ROCKET_PORT=8080
+ENV ROCKET_PORT=8081
 ENV DATABASE_URL="mysql://root:password@file-db:3306/file-db"
 
 CMD ["./lockbox-fs-service"]
