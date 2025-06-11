@@ -2,7 +2,7 @@ services:
   file-storage-service:
     build: .
     ports:
-      - "8080:8080"
+      - "8081:8081"
     environment:
       - DATABASE_URL="mysql://root:password@file-db/file-db"
       - RABBIT_ADDRESS="amqp://guest:guest@rabbit-mq:5672"

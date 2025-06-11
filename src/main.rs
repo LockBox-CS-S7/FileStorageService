@@ -31,6 +31,8 @@ use log::info;
 use dotenv::dotenv;
 use crate::messaging::rabbitmq::FileMessageData;
 
+use std::time::SystemTime;
+
 const ID_LENGTH: usize = 36;
 
 #[derive(FromForm)]
@@ -96,6 +98,7 @@ async fn get_user_files(user_id: &str) -> Json<Vec<FileViewModel>> {
 
 #[post("/", data = "<form>")]
 async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
+    let now = SystemTime::now();
     let mut file_buffer = Vec::new();
     let mut buf_read = form.file.open().await?;
     buf_read.read_to_end(&mut file_buffer).await?;
@@ -122,6 +125,7 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     );
     messenger.send_message(&message).await.ok();
 
+    info!("File uploaded in {} millis", now.elapsed().unwrap().as_millis());
     Ok(format!("File uploaded successfully (id = {file_id})"))
 }
 
