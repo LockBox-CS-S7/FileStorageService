@@ -28,5 +28,5 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           format: openapi
-          target: 'http://localhost:8080'
+          target: 'http://localhost:8081'
           cmd_options: '-a'
