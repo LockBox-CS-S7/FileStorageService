@@ -126,7 +126,7 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     );
     messenger.send_message(&message).await.ok();
 
-    info!("File uploaded in {} millis", now.elapsed().unwrap().as_millis());
+    info!("File uploaded in {} millis by user: {}", now.elapsed().unwrap().as_millis(), message.user_id);
     Ok(format!("File uploaded successfully (id = {file_id})"))
 }
 
