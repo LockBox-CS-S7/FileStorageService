@@ -1,0 +1,32 @@
+name: ZAP Scan - Rocket API
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  zap_scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build backend
+        run: cargo build --release
+
+      - name: Run API in background
+        run: |
+          ./target/release/lockbox-fs-service &
+          echo "Waiting for API to be ready..."
+          sleep 5
+          echo "Starting ZAP scan"
+
+      - name: ZAP API Scan
+        uses: zaproxy/action-api-scan@v0.9.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          format: openapi
+          target: 'http://localhost:8080'
+          cmd_options: '-a'
