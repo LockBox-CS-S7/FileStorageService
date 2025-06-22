@@ -106,7 +106,7 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
     let file_name = form.file.name().unwrap();
     let file_extension = form.file.content_type().unwrap().0.extension().unwrap_or("".into());
     
-    // let repo = FileRepository::from_env();
+    let repo = FileRepository::from_env();
     let model = FileModel {
         id: None,
         user_id: form.user_id.clone(),
@@ -115,8 +115,7 @@ async fn upload_file(form: Form<FileUpload<'_>>) -> std::io::Result<String> {
         contents: file_buffer,
     };
     
-    // let file_id = repo.create(model).await?;
-    let file_id = "3yvqmhhht90qh9fj-q93t9jq";
+    let file_id = repo.create(model).await?;
 
     let messenger = RabbitMqMessenger::from_env();
     let message = FileMessageData::new(
